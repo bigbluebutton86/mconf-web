@@ -12,6 +12,10 @@ Chat =
   password: null
   bbb_room_url: null
   requester_name: null
+  offline_jid_id: null
+  offline_name: null
+  offline_body: null
+  history_message: false
   list_of_pending_contacts: []
 
   jid_to_id: (jid) ->
@@ -187,20 +191,26 @@ Chat =
         body = span
 
       if body?
+        Chat.history_message = false
         unless $('#chat-' + jid_id).size()
           Chat.insertChatArea jid, jid_id, status, name
 
         $('#chat-' + jid_id + ' #content-chat').show()
         $('#chat-' + jid_id + ' .chat-input').focus()
 
-        $('#chat-' + jid_id + ' #content-chat #message-area .chat-messages .chat-event').remove()
-        $('#chat-' + jid_id + ' #content-chat #message-area .chat-messages').append(
-          "<div class='chat-message'>" +
-          "<span class='chat-name'>" + name +
-          " </span><span class='chat-text'>" +
-          "</span></div>")
-        $('#chat-' + jid_id + ' .chat-message:last .chat-text').append body
-        Chat.scroll_chat jid_id
+        if Chat.history_message
+          Chat.offline_jid_id = jid_id
+          Chat.offline_name = name
+          Chat.offline_body = body
+        else
+          $('#chat-' + jid_id + ' #content-chat #message-area .chat-messages .chat-event').remove()
+          $('#chat-' + jid_id + ' #content-chat #message-area .chat-messages').append(
+            "<div class='chat-message'>" +
+            "<span class='chat-name'>" + name +
+            " </span><span class='chat-text'>" +
+            "</span></div>")
+          $('#chat-' + jid_id + ' .chat-message:last .chat-text').append body
+          Chat.scroll_chat jid_id
     return true
 
   scroll_chat: (jid_id) ->
@@ -254,6 +264,7 @@ Chat =
       .c("set", {xmlns: "http://jabber.org/protocol/rsm"})
       .c("max").t("100")
     Chat.connection.sendIQ iq, Chat.chat_history_list
+    Chat.history_message = true
 
   chat_history_list: (iq) ->
     iq1 = $iq({type: "get"})
@@ -263,6 +274,7 @@ Chat =
     Chat.connection.sendIQ iq1, Chat.chat_history
 
   chat_history: (iq) ->
+    console.log iq
     jid_id = Chat.jid_to_id $(iq).find("chat").attr("with")
     name = $("#"+jid_id).find(".roster-name").text()
     name_me = $("#status").text()
@@ -285,6 +297,23 @@ Chat =
     $("#chat-" + jid_id).find('.chat-messages').append(
       "<div class='chat-message border-history'></div>")
     Chat.scroll_chat jid_id
+    Chat.print_offline_message true if Chat.history_message
+    Chat.history_message = false
+
+  print_offline_message: (bool) ->
+    if Chat.offline_jid_id?
+      $('#chat-' + Chat.offline_jid_id + ' #content-chat #message-area .chat-messages .chat-event').remove()
+      $('#chat-' + Chat.offline_jid_id + ' #content-chat #message-area .chat-messages').append(
+        "<div class='chat-message'>" +
+        "<span class='chat-name'>" + Chat.offline_name +
+        " </span><span class='chat-text'>" +
+        "</span></div>")
+      $('#chat-' + Chat.offline_jid_id + ' .chat-message:last .chat-text').append Chat.offline_body
+      Chat.scroll_chat Chat.offline_jid_id
+      Chat.history_message = false
+      Chat.offline_jid_id = null
+      Chat.offline_name = null
+      Chat.offline_body = null
 
 #  creating_room: (iq) ->
 #    console.log "sala"
